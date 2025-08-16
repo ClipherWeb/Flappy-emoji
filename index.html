@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Clipher | Web</title>
+<style>
+  body {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    background: linear-gradient(to bottom, #70c5ce, #fff);
+    font-family: sans-serif;
+    overflow: hidden;
+  }
+
+  .game-container {
+    position: relative;
+    width: 400px;
+    height: 600px;
+    background: linear-gradient(to bottom, #70c5ce, #a0e0f0);
+    border: 2px solid #000;
+    overflow: hidden;
+    border-radius: 15px;
+    box-shadow: 0 8px 20px rgba(0,0,0,0.3);
+  }
+
+  #bird {
+    position: absolute;
+    width: 40px;
+    height: 40px;
+    top: 250px;
+    left: 80px;
+    z-index: 1;
+    animation: flap 0.2s infinite alternate;
+    font-size: 30px;
+    text-align: center;
+    line-height: 40px;
+  }
+
+  @keyframes flap {
+    0% { transform: translateY(0); }
+    50% { transform: translateY(-3px); }
+    100% { transform: translateY(0); }
+  }
+
+  .pipe {
+    position: absolute;
+    width: 60px;
+    background: #228B22;
+    border-radius: 10px;
+    box-shadow: 0 0 8px rgba(0,0,0,0.5);
+    z-index: 0;
+  }
+
+  #score {
+    position: absolute;
+    top: 15px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 32px;
+    font-weight: bold;
+    color: #fff;
+    text-shadow: 2px 2px #000;
+    z-index: 2;
+  }
+
+  #game-over {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    backdrop-filter: blur(5px);
+    background: rgba(255,255,255,0.2);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    color: #fff;
+    font-size: 36px;
+    font-weight: bold;
+    display: none;
+    border-radius: 15px;
+    text-shadow: 2px 2px #000;
+    z-index: 10;
+  }
+
+  #restart-btn {
+    margin-top: 20px;
+    padding: 12px 24px;
+    font-size: 20px;
+    background: rgba(255,255,255,0.6);
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: 0.2s;
+  }
+
+  #restart-btn:hover {
+    background: rgba(255,255,255,0.9);
+  }
+</style>
+</head>
+<body>
+
+<div class="game-container" id="game-container">
+  <div id="bird"></div>
+  <div id="score">0</div>
+  <div id="game-over">
+    Game Over
+    <button id="restart-btn">Restart</button>
+  </div>
+</div>
+
+<script>
+const bird = document.getElementById('bird');
+const gameContainer = document.getElementById('game-container');
+const scoreEl = document.getElementById('score');
+const gameOverEl = document.getElementById('game-over');
+const restartBtn = document.getElementById('restart-btn');
+
+const emojis = ["🐤","🦉","✈️","🦄","🐵","🐥","🐔","🐧"];
+
+let birdTop = 250;
+let birdLeft = 80;
+let gravity = 4;
+let jumpHeight = 70;
+let isGameOver = false;
+let score = 0;
+let pipes = [];
+let pipeInterval;
+
+function setRandomBirdEmoji() {
+  const emoji = emojis[Math.floor(Math.random() * emojis.length)];
+  bird.textContent = emoji;
+}
+
+function startGame() {
+  setRandomBirdEmoji();
+  birdTop = 250;
+  bird.style.top = birdTop + 'px';
+  isGameOver = false;
+  score = 0;
+  scoreEl.textContent = score;
+  gameOverEl.style.display = 'none';
+  
+  pipes.forEach(pipe => pipe.element.remove());
+  pipes = [];
+
+  createPipe();
+  pipeInterval = setInterval(createPipe, 2000);
+  requestAnimationFrame(update);
+}
+
+function update() {
+  if (isGameOver) return;
+
+  birdTop += gravity;
+  bird.style.top = birdTop + 'px';
+
+  if (birdTop <= 0 || birdTop + 40 >= gameContainer.clientHeight) {
+    endGame();
+  }
+
+  pipes.forEach(pipeObj => {
+    const pipe = pipeObj.element;
+    let pipeLeft = parseInt(pipe.style.left);
+    pipeLeft -= 3;
+    pipe.style.left = pipeLeft + 'px';
+
+    if (!pipeObj.passed && pipeLeft + 60 < birdLeft) {
+      score += 0.5; // Each pair counts as 1
+      scoreEl.textContent = Math.floor(score);
+      pipeObj.passed = true;
+    }
+
+    const birdRect = bird.getBoundingClientRect();
+    const pipeRect = pipe.getBoundingClientRect();
+    if (
+      birdRect.left < pipeRect.left + pipeRect.width &&
+      birdRect.left + birdRect.width > pipeRect.left &&
+      birdRect.top < pipeRect.top + pipeRect.height &&
+      birdRect.top + birdRect.height > pipeRect.top
+    ) {
+      endGame();
+    }
+  });
+
+  requestAnimationFrame(update);
+}
+
+function jump() {
+  if (isGameOver) return;
+  birdTop -= jumpHeight;
+  if (birdTop < 0) birdTop = 0;
+  bird.style.top = birdTop + 'px';
+}
+
+function createPipe() {
+  const gap = 150;
+  const topHeight = Math.floor(Math.random() * (gameContainer.clientHeight - gap - 100)) + 50;
+  const bottomHeight = gameContainer.clientHeight - gap - topHeight;
+
+  const topPipe = document.createElement('div');
+  topPipe.classList.add('pipe');
+  topPipe.style.height = topHeight + 'px';
+  topPipe.style.top = '0px';
+  topPipe.style.left = gameContainer.clientWidth + 'px';
+  gameContainer.appendChild(topPipe);
+
+  const bottomPipe = document.createElement('div');
+  bottomPipe.classList.add('pipe');
+  bottomPipe.style.height = bottomHeight + 'px';
+  bottomPipe.style.top = gameContainer.clientHeight - bottomHeight + 'px';
+  bottomPipe.style.left = gameContainer.clientWidth + 'px';
+  gameContainer.appendChild(bottomPipe);
+
+  pipes.push({element: topPipe, passed: false});
+  pipes.push({element: bottomPipe, passed: false});
+}
+
+function endGame() {
+  isGameOver = true;
+  gameOverEl.style.display = 'flex';
+  clearInterval(pipeInterval);
+}
+
+document.addEventListener('keydown', (e) => { if (e.code === 'Space') jump(); });
+document.addEventListener('click', jump);
+restartBtn.addEventListener('click', startGame);
+
+startGame();
+</script>
+
+</body>
+</html>
